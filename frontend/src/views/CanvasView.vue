@@ -3,119 +3,215 @@
     <!-- Simple floating action buttons with state indicators -->
     <div class="fab-container">
       <v-btn
-        icon="mdi-timer"
-        :color="pomodoroWindow?.isVisible ? 'success' : 'primary'"
-        :variant="pomodoroWindow?.isVisible ? 'elevated' : 'outlined'"
+        v-for="(config, type) in WINDOW_CONFIGS"
+        :key="type"
+        :icon="config.icon"
+        :color="getWindow(type)?.isVisible ? 'success' : 'primary'"
+        :variant="getWindow(type)?.isVisible ? 'elevated' : 'outlined'"
         size="large"
         class="mb-2"
-        @click="toggleWindow('pomodoro')"
-      ></v-btn>
-      
-      <v-btn
-        icon="mdi-format-list-bulleted"
-        :color="todoWindow?.isVisible ? 'success' : 'secondary'"
-        :variant="todoWindow?.isVisible ? 'elevated' : 'outlined'"
-        size="large"
-        @click="toggleWindow('todo')"
+        @click="toggleWindow(type)"
       ></v-btn>
     </div>
 
     <!-- Debug info -->
     <div class="debug-info">
-      Windows: P:{{ pomodoroWindow?.isVisible ? 'ON' : 'OFF' }} | T:{{ todoWindow?.isVisible ? 'ON' : 'OFF' }}
+      Windows: P:{{ getWindow(WindowType.POMODORO)?.isVisible ? 'ON' : 'OFF' }} | T:{{ getWindow(WindowType.TODO)?.isVisible ? 'ON' : 'OFF' }}
     </div>
 
     <DraggableWindow
-      v-for="window in visibleWindows"
-      :key="window.id"
-      :title="window.title"
-      :initial-x="window.x"
-      :initial-y="window.y"
-      @bring-to-front="bringToFront(window.id)"
-      @position-changed="updateWindowPosition(window.id, $event)"
+      v-for="windowInstance in visibleWindows"
+      :key="windowInstance.id"
+      :title="windowInstance.title"
+      :x="windowInstance.x"
+      :y="windowInstance.y"
+      :width="windowInstance.width"
+      :height="windowInstance.height"
+      :z-index="windowInstance.zIndex"
+      :min-width="WINDOW_CONFIGS[windowInstance.type].minWidth"
+      :min-height="WINDOW_CONFIGS[windowInstance.type].minHeight"
+      @bring-to-front="bringToFront(windowInstance.type)"
+      @position-changed="updateWindowPosition(windowInstance.type, $event)"
+      @size-changed="updateWindowSize(windowInstance.type, $event)"
+      @close="closeWindow(windowInstance.type)"
     >
-      <PomodoroTimerWindow v-if="window.type === 'pomodoro'" />
-      <TodoListWindow v-else-if="window.type === 'todo'" />
+      <component :is="getWindowComponent(windowInstance.type)" />
     </DraggableWindow>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, reactive, onUnmounted, type Component } from 'vue'
 import DraggableWindow from '../components/DraggableWindow.vue'
 import PomodoroTimerWindow from '../components/PomodoroTimerWindow.vue'
 import TodoListWindow from '../components/TodoListWindow.vue'
 
-class Window {
+enum WindowType {
+  POMODORO = 'pomodoro',
+  TODO = 'todo'
+}
+
+interface WindowConfig {
+  title: string
+  defaultX: number
+  defaultY: number
+  icon: string
+  component: Component
+  minWidth: number
+  minHeight: number
+  defaultWidth: number
+  defaultHeight: number
+}
+
+interface WindowState {
   id: number
-  type: 'pomodoro' | 'todo'
+  type: WindowType
   title: string
   x: number
   y: number
+  width: number
+  height: number
   isVisible: boolean
+  zIndex: number
+}
 
-  constructor(id: number, type: 'pomodoro' | 'todo', title: string, x: number = 100, y: number = 100) {
-    this.id = id
-    this.type = type
-    this.title = title
-    this.x = x
-    this.y = y
-    this.isVisible = false
-  }
-
-  show(): void {
-    this.isVisible = true
-  }
-
-  hide(): void {
-    this.isVisible = false
-  }
-
-  toggle(): void {
-    this.isVisible = !this.isVisible
-  }
-
-  updatePosition(x: number, y: number): void {
-    this.x = x
-    this.y = y
+const WINDOW_CONFIGS: Record<WindowType, WindowConfig> = {
+  [WindowType.POMODORO]: { 
+    title: 'Pomodoro Timer', 
+    defaultX: 100, 
+    defaultY: 100, 
+    icon: 'mdi-timer',
+    component: PomodoroTimerWindow,
+    minWidth: 320,
+    minHeight: 180,
+    defaultWidth: 400,
+    defaultHeight: 220
+  },
+  [WindowType.TODO]: { 
+    title: 'Todo List', 
+    defaultX: 200, 
+    defaultY: 150, 
+    icon: 'mdi-format-list-bulleted',
+    component: TodoListWindow,
+    minWidth: 350,
+    minHeight: 200,
+    defaultWidth: 450,
+    defaultHeight: 350
   }
 }
 
 let windowIdCounter = 0
+const maxZIndex = ref(100)
 
-// Create window instances
-const pomodoroWindow = ref<Window>(new Window(++windowIdCounter, 'pomodoro', 'Pomodoro Timer', 100, 100))
-const todoWindow = ref<Window>(new Window(++windowIdCounter, 'todo', 'Todo List', 200, 150))
+// Create reactive window states using Map
+const windowStates = ref<Map<WindowType, WindowState>>(new Map())
 
-const windows = ref<Window[]>([pomodoroWindow.value, todoWindow.value])
+// Initialize windows
+const initializeWindows = () => {
+  windowStates.value.set(WindowType.POMODORO, reactive({
+    id: ++windowIdCounter,
+    type: WindowType.POMODORO,
+    title: WINDOW_CONFIGS[WindowType.POMODORO].title,
+    x: WINDOW_CONFIGS[WindowType.POMODORO].defaultX,
+    y: WINDOW_CONFIGS[WindowType.POMODORO].defaultY,
+    width: WINDOW_CONFIGS[WindowType.POMODORO].defaultWidth,
+    height: WINDOW_CONFIGS[WindowType.POMODORO].defaultHeight,
+    isVisible: false,
+    zIndex: maxZIndex.value++
+  }))
 
-// Computed property to get only visible windows
+  windowStates.value.set(WindowType.TODO, reactive({
+    id: ++windowIdCounter,
+    type: WindowType.TODO,
+    title: WINDOW_CONFIGS[WindowType.TODO].title,
+    x: WINDOW_CONFIGS[WindowType.TODO].defaultX,
+    y: WINDOW_CONFIGS[WindowType.TODO].defaultY,
+    width: WINDOW_CONFIGS[WindowType.TODO].defaultWidth,
+    height: WINDOW_CONFIGS[WindowType.TODO].defaultHeight,
+    isVisible: false,
+    zIndex: maxZIndex.value++
+  }))
+}
+
+// Initialize windows on setup
+initializeWindows()
+
+// Computed property to get only visible windows (memoized)
 const visibleWindows = computed(() => {
-  return windows.value.filter(window => window.isVisible)
+  const visible: WindowState[] = []
+  for (const windowState of windowStates.value.values()) {
+    if (windowState.isVisible) {
+      visible.push(windowState)
+    }
+  }
+  return visible
 })
 
-const toggleWindow = (type: 'pomodoro' | 'todo'): void => {
-  const window = windows.value.find(w => w.type === type)
-  if (window) {
-    window.toggle()
+const getWindow = (type: WindowType): WindowState | undefined => {
+  return windowStates.value.get(type)
+}
+
+const getWindowComponent = (type: WindowType): Component => {
+  return WINDOW_CONFIGS[type].component
+}
+
+const toggleWindow = (type: WindowType): void => {
+  const windowState = windowStates.value.get(type)
+  if (windowState) {
+    windowState.isVisible = !windowState.isVisible
   }
 }
 
-const updateWindowPosition = (windowId: number, position: { x: number; y: number }): void => {
-  const window = windows.value.find(w => w.id === windowId)
-  if (window) {
-    window.updatePosition(position.x, position.y)
+const closeWindow = (type: WindowType): void => {
+  const windowState = windowStates.value.get(type)
+  if (windowState) {
+    windowState.isVisible = false
   }
 }
 
-const bringToFront = (windowId: number): void => {
-  // Find and move to end of array for z-index ordering
-  const windowIndex = windows.value.findIndex(w => w.id === windowId)
-  if (windowIndex !== -1) {
-    const window = windows.value.splice(windowIndex, 1)[0]
-    windows.value.push(window)
+const updateWindowPosition = (type: WindowType, position: { x: number; y: number }): void => {
+  const windowState = windowStates.value.get(type)
+  if (!windowState) return
+
+  // Apply boundary constraints using current window dimensions
+  const viewportWidth = globalThis.window.innerWidth
+  const viewportHeight = globalThis.window.innerHeight
+  
+  const maxX = Math.max(0, viewportWidth - windowState.width)
+  const maxY = Math.max(0, viewportHeight - windowState.height)
+  
+  windowState.x = Math.max(0, Math.min(position.x, maxX))
+  windowState.y = Math.max(0, Math.min(position.y, maxY))
+}
+
+const updateWindowSize = (type: WindowType, size: { width: number; height: number }): void => {
+  const windowState = windowStates.value.get(type)
+  if (!windowState) return
+
+  const config = WINDOW_CONFIGS[type]
+  const viewportWidth = globalThis.window.innerWidth
+  const viewportHeight = globalThis.window.innerHeight
+  
+  // Apply minimum and maximum constraints
+  windowState.width = Math.max(config.minWidth, Math.min(size.width, viewportWidth))
+  windowState.height = Math.max(config.minHeight, Math.min(size.height, viewportHeight))
+  
+  // Ensure window doesn't go out of bounds after resize
+  updateWindowPosition(type, { x: windowState.x, y: windowState.y })
+}
+
+const bringToFront = (type: WindowType): void => {
+  const windowState = windowStates.value.get(type)
+  if (windowState) {
+    maxZIndex.value += 1
+    windowState.zIndex = maxZIndex.value
   }
 }
+
+// Cleanup on unmount
+onUnmounted(() => {
+  windowStates.value.clear()
+})
 </script>
 
 <style scoped>
@@ -134,7 +230,7 @@ const bringToFront = (windowId: number): void => {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  z-index: 1000;
+  z-index: 2000;
 }
 
 .debug-info {
@@ -146,6 +242,6 @@ const bringToFront = (windowId: number): void => {
   padding: 8px;
   border-radius: 4px;
   font-size: 12px;
-  z-index: 1000;
+  z-index: 2000;
 }
 </style>

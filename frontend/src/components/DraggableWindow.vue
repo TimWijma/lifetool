@@ -3,11 +3,13 @@
     ref="windowRef"
     class="draggable-window"
     :style="{
-      left: position.x + 'px',
-      top: position.y + 'px',
-      zIndex: zIndex
+      left: x + 'px',
+      top: y + 'px',
+      zIndex: zIndex,
+      width: width + 'px',
+      height: height + 'px'
     }"
-    @mousedown="bringToFront"
+    @mousedown="emit('bring-to-front')"
   >
     <div
       class="window-header"
@@ -18,60 +20,96 @@
         <v-icon size="small" class="drag-icon">mdi-drag</v-icon>
         <span class="window-title">{{ title }}</span>
       </div>
+      <v-btn
+        icon="mdi-close"
+        size="x-small"
+        variant="text"
+        @click="closeWindow"
+        class="close-btn"
+      ></v-btn>
     </div>
     <div class="window-content">
       <slot></slot>
+    </div>
+    
+    <!-- Resize Handle -->
+    <div
+      class="resize-handle"
+      @mousedown="startResize"
+      @touchstart="startResize"
+    >
+      <v-icon size="small" class="resize-icon">mdi-resize-bottom-right</v-icon>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, onUnmounted } from 'vue'
 
 interface Props {
   title?: string
-  initialX?: number
-  initialY?: number
-}
-
-interface Position {
   x: number
   y: number
+  zIndex: number
+  minWidth?: number
+  minHeight?: number
+  width: number
+  height: number
 }
 
-interface DragOffset {
-  x: number
-  y: number
+interface DragState {
+  isDragging: boolean
+  offsetX: number
+  offsetY: number
+}
+
+interface ResizeState {
+  isResizing: boolean
+  startWidth: number
+  startHeight: number
+  startX: number
+  startY: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
   title: 'Window',
-  initialX: 100,
-  initialY: 100
+  minWidth: 200,
+  minHeight: 100,
+  width: 400,
+  height: 300
 })
 
 const emit = defineEmits<{
   'bring-to-front': []
   'position-changed': [position: { x: number; y: number }]
+  'size-changed': [size: { width: number; height: number }]
+  'close': []
 }>()
 
 const windowRef = ref<HTMLElement | null>(null)
-const isDragging = ref<boolean>(false)
-const dragOffset = reactive<DragOffset>({ x: 0, y: 0 })
-const position = reactive<Position>({ x: props.initialX, y: props.initialY })
-const zIndex = ref<number>(1000)
-
-let maxZIndex = 1000
+const dragState = reactive<DragState>({ isDragging: false, offsetX: 0, offsetY: 0 })
+const resizeState = reactive<ResizeState>({ 
+  isResizing: false, 
+  startWidth: 0, 
+  startHeight: 0, 
+  startX: 0, 
+  startY: 0 
+})
 
 const startDrag = (event: MouseEvent | TouchEvent): void => {
   event.preventDefault()
-  isDragging.value = true
+  event.stopPropagation() // Prevent bring-to-front when starting drag
+  
+  // Bring window to front when starting drag
+  emit('bring-to-front')
+  
+  dragState.isDragging = true
   
   const clientX = event.type === 'touchstart' ? (event as TouchEvent).touches[0].clientX : (event as MouseEvent).clientX
   const clientY = event.type === 'touchstart' ? (event as TouchEvent).touches[0].clientY : (event as MouseEvent).clientY
   
-  dragOffset.x = clientX - position.x
-  dragOffset.y = clientY - position.y
+  dragState.offsetX = clientX - props.x
+  dragState.offsetY = clientY - props.y
   
   document.addEventListener('mousemove', handleDrag)
   document.addEventListener('mouseup', stopDrag)
@@ -80,64 +118,92 @@ const startDrag = (event: MouseEvent | TouchEvent): void => {
 }
 
 const handleDrag = (event: MouseEvent | TouchEvent): void => {
-  if (!isDragging.value) return
+  if (!dragState.isDragging) return
   
   event.preventDefault()
   
   const clientX = event.type === 'touchmove' ? (event as TouchEvent).touches[0].clientX : (event as MouseEvent).clientX
   const clientY = event.type === 'touchmove' ? (event as TouchEvent).touches[0].clientY : (event as MouseEvent).clientY
   
-  let newX = clientX - dragOffset.x
-  let newY = clientY - dragOffset.y
+  const newX = clientX - dragState.offsetX
+  const newY = clientY - dragState.offsetY
   
-  // Boundary constraints - keep window on screen
-  const windowRect = windowRef.value?.getBoundingClientRect()
-  if (windowRect) {
-    const maxX = window.innerWidth - windowRect.width
-    const maxY = window.innerHeight - windowRect.height
-    
-    newX = Math.max(0, Math.min(newX, maxX))
-    newY = Math.max(0, Math.min(newY, maxY))
-  }
-  
-  position.x = newX
-  position.y = newY
+  // Emit position change to parent - let parent handle boundary constraints
+  emit('position-changed', { x: newX, y: newY })
 }
 
 const stopDrag = (): void => {
-  isDragging.value = false
+  dragState.isDragging = false
   document.removeEventListener('mousemove', handleDrag)
   document.removeEventListener('mouseup', stopDrag)
   document.removeEventListener('touchmove', handleDrag)
   document.removeEventListener('touchend', stopDrag)
+}
+
+const closeWindow = (event: Event): void => {
+  event.stopPropagation()
+  emit('close')
+}
+
+const startResize = (event: MouseEvent | TouchEvent): void => {
+  event.preventDefault()
+  event.stopPropagation()
   
-  // Emit position change to parent
-  emit('position-changed', { x: position.x, y: position.y })
-}
-
-const bringToFront = (): void => {
-  maxZIndex += 1
-  zIndex.value = maxZIndex
   emit('bring-to-front')
+  
+  resizeState.isResizing = true
+  resizeState.startWidth = props.width
+  resizeState.startHeight = props.height
+  
+  const clientX = event.type === 'touchstart' ? (event as TouchEvent).touches[0].clientX : (event as MouseEvent).clientX
+  const clientY = event.type === 'touchstart' ? (event as TouchEvent).touches[0].clientY : (event as MouseEvent).clientY
+  
+  resizeState.startX = clientX
+  resizeState.startY = clientY
+  
+  document.addEventListener('mousemove', handleResize)
+  document.addEventListener('mouseup', stopResize)
+  document.addEventListener('touchmove', handleResize)
+  document.addEventListener('touchend', stopResize)
 }
 
-onMounted(() => {
-  // Ensure window is within bounds on mount
-  const windowRect = windowRef.value?.getBoundingClientRect()
-  if (windowRect) {
-    const maxX = window.innerWidth - windowRect.width
-    const maxY = window.innerHeight - windowRect.height
-    
-    position.x = Math.max(0, Math.min(position.x, maxX))
-    position.y = Math.max(0, Math.min(position.y, maxY))
-  }
-})
+const handleResize = (event: MouseEvent | TouchEvent): void => {
+  if (!resizeState.isResizing) return
+  
+  event.preventDefault()
+  
+  const clientX = event.type === 'touchmove' ? (event as TouchEvent).touches[0].clientX : (event as MouseEvent).clientX
+  const clientY = event.type === 'touchmove' ? (event as TouchEvent).touches[0].clientY : (event as MouseEvent).clientY
+  
+  const deltaX = clientX - resizeState.startX
+  const deltaY = clientY - resizeState.startY
+  
+  const newWidth = Math.max(props.minWidth, resizeState.startWidth + deltaX)
+  const newHeight = Math.max(props.minHeight, resizeState.startHeight + deltaY)
+  
+  const maxWidth = Math.min(newWidth, window.innerWidth)
+  const maxHeight = Math.min(newHeight, window.innerHeight)
+
+  emit('size-changed', { width: maxWidth, height: maxHeight })
+}
+
+const stopResize = (): void => {
+  resizeState.isResizing = false
+  document.removeEventListener('mousemove', handleResize)
+  document.removeEventListener('mouseup', stopResize)
+  document.removeEventListener('touchmove', handleResize)
+  document.removeEventListener('touchend', stopResize)
+}
 
 onUnmounted(() => {
   document.removeEventListener('mousemove', handleDrag)
   document.removeEventListener('mouseup', stopDrag)
   document.removeEventListener('touchmove', handleDrag)
   document.removeEventListener('touchend', stopDrag)
+  document.removeEventListener('mousemove', handleResize)
+  document.removeEventListener('mouseup', stopResize)
+  document.removeEventListener('touchmove', handleResize)
+  document.removeEventListener('touchend', stopResize)
 })
 </script>
 
@@ -148,7 +214,8 @@ onUnmounted(() => {
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   overflow: hidden;
-  min-width: 200px;
+  min-width: v-bind('props.minWidth + "px"');
+  min-height: v-bind('props.minHeight + "px"');
   user-select: none;
 }
 
@@ -159,13 +226,14 @@ onUnmounted(() => {
   cursor: move;
   display: flex;
   align-items: center;
+  justify-content: space-between;
 }
 
 .drag-handle {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
+  flex: 1;
 }
 
 .drag-icon {
@@ -178,8 +246,18 @@ onUnmounted(() => {
   font-size: 14px;
 }
 
+.close-btn {
+  color: #666;
+  opacity: 0.7;
+}
+
+.close-btn:hover {
+  opacity: 1;
+  color: #f44336;
+}
+
 .window-content {
-  padding: 0;
+  padding: 16px;
 }
 
 .window-header:hover {
@@ -188,5 +266,31 @@ onUnmounted(() => {
 
 .window-header:active {
   background: #e0e0e0;
+}
+
+.resize-handle {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 20px;
+  height: 20px;
+  cursor: nwse-resize;
+  background: rgba(0, 0, 0, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px 0 8px 0;
+  opacity: 0.6;
+  transition: opacity 0.2s ease, background-color 0.2s ease;
+}
+
+.resize-handle:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.resize-icon {
+  color: #666;
+  transform: rotate(0deg);
 }
 </style>

@@ -1,47 +1,42 @@
 <template>
-  <v-card>
-    <v-card-title>Todo List</v-card-title>
-    <v-card-text>
-      <v-text-field
-        v-model="newTodo"
-        label="Add new todo"
-        @keyup.enter="addTodo"
-        append-inner-icon="mdi-plus"
-        @click:append-inner="addTodo"
-      ></v-text-field>
+  <v-text-field
+    v-model="newTodo"
+    label="Add new todo"
+    @keyup.enter="addTodo"
+    append-inner-icon="mdi-plus"
+    @click:append-inner="addTodo"
+  ></v-text-field>
+  
+  <v-list>
+    <v-list-item
+      v-for="(todo, index) in todos"
+      :key="index"
+      class="px-0"
+    >
+      <template v-slot:prepend>
+        <v-checkbox
+          v-model="todo.completed"
+          color="primary"
+          hide-details
+        ></v-checkbox>
+      </template>
       
-      <v-list>
-        <v-list-item
-          v-for="(todo, index) in todos"
-          :key="index"
-          class="px-0"
-        >
-          <template v-slot:prepend>
-            <v-checkbox
-              v-model="todo.completed"
-              color="primary"
-              hide-details
-            ></v-checkbox>
-          </template>
-          
-          <v-list-item-title
-            :class="{ 'text-decoration-line-through': todo.completed }"
-          >
-            {{ todo.text }}
-          </v-list-item-title>
-          
-          <template v-slot:append>
-            <v-btn
-              icon="mdi-delete"
-              size="small"
-              variant="text"
-              @click="removeTodo(index)"
-            ></v-btn>
-          </template>
-        </v-list-item>
-      </v-list>
-    </v-card-text>
-  </v-card>
+      <v-list-item-title
+        :class="{ 'text-decoration-line-through': todo.completed }"
+      >
+        {{ todo.text }}
+      </v-list-item-title>
+      
+      <template v-slot:append>
+        <v-btn
+          icon="mdi-delete"
+          size="small"
+          variant="text"
+          @click="removeTodo(index)"
+        ></v-btn>
+      </template>
+    </v-list-item>
+  </v-list>
 </template>
 
 <script setup lang="ts">
