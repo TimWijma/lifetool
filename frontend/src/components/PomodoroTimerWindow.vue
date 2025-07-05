@@ -2,22 +2,22 @@
   <v-row class="text-center">
     <v-col cols="12">
       <v-chip 
-        :color="currentPhase === 'work' ? 'primary' : 'success'" 
+        :color="pomodoroStore.currentPhase === 'work' ? 'primary' : 'success'" 
         class="mb-2"
         size="small"
       >
-        {{ currentPhase === 'work' ? 'Work Time' : 'Break Time' }}
+        {{ pomodoroStore.currentPhase === 'work' ? 'Work Time' : 'Break Time' }}
       </v-chip>
       <h1 
-        :class="{ 'timer-warning': timeLeft <= 60 && isRunning }"
+        :class="{ 'timer-warning': pomodoroStore.timeLeft <= 60 && pomodoroStore.isRunning }"
         role="timer"
-        :aria-label="`${currentPhase === 'work' ? 'Work' : 'Break'} timer: ${formattedTime} remaining`"
+        :aria-label="`${pomodoroStore.currentPhase === 'work' ? 'Work' : 'Break'} timer: ${pomodoroStore.formattedTime} remaining`"
       >
-        {{ formattedTime }}
+        {{ pomodoroStore.formattedTime }}
       </h1>
       <v-progress-linear
-        :model-value="progressPercentage"
-        :color="currentPhase === 'work' ? 'primary' : 'success'"
+        :model-value="pomodoroStore.progressPercentage"
+        :color="pomodoroStore.currentPhase === 'work' ? 'primary' : 'success'"
         height="6"
         class="mb-3"
       ></v-progress-linear>
@@ -25,13 +25,13 @@
     <v-col cols="12">
       <v-btn 
         @click="toggleTimer" 
-        :color="isRunning ? 'error' : 'success'"
-        :disabled="timeLeft === 0"
+        :color="pomodoroStore.isRunning ? 'error' : 'success'"
+        :disabled="pomodoroStore.timeLeft === 0"
         size="large"
         class="mr-2"
       >
-        <v-icon start>{{ isRunning ? 'mdi-pause' : 'mdi-play' }}</v-icon>
-        {{ isRunning ? 'Pause' : (timeLeft === initialDuration ? 'Start' : 'Resume') }}
+        <v-icon start>{{ pomodoroStore.isRunning ? 'mdi-pause' : 'mdi-play' }}</v-icon>
+        {{ pomodoroStore.isRunning ? 'Pause' : (pomodoroStore.timeLeft === pomodoroStore.initialDuration ? 'Start' : 'Resume') }}
       </v-btn>
       <v-btn 
         @click="resetTimer" 
@@ -48,7 +48,7 @@
         color="warning"
         variant="outlined"
         size="large"
-        :disabled="!isRunning && timeLeft === initialDuration"
+        :disabled="!pomodoroStore.isRunning && pomodoroStore.timeLeft === pomodoroStore.initialDuration"
       >
         <v-icon start>mdi-skip-next</v-icon>
         Skip
@@ -57,7 +57,7 @@
     <v-col cols="12">
       <v-chip-group class="justify-center">
         <v-chip 
-          v-for="i in completedCycles" 
+          v-for="i in pomodoroStore.completedCycles" 
           :key="i"
           color="success"
           size="small"
@@ -65,7 +65,7 @@
           {{ i }}
         </v-chip>
       </v-chip-group>
-      <p class="text-caption mt-2">Completed Pomodoros: {{ completedCycles }}</p>
+      <p class="text-caption mt-2">Completed Pomodoros: {{ pomodoroStore.completedCycles }}</p>
     </v-col>
   </v-row>
 
@@ -83,7 +83,7 @@
       </v-card-text>
       <v-card-actions class="justify-center">
         <v-btn color="primary" @click="startNextPhase">
-          Start {{ currentPhase === 'work' ? 'Work' : 'Break' }}
+          Start {{ pomodoroStore.currentPhase === 'work' ? 'Work' : 'Break' }}
         </v-btn>
         <v-btn variant="outlined" @click="dismissDialog">
           Dismiss
@@ -94,115 +94,44 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, onUnmounted, watch } from 'vue'
+import { usePomodoroStore } from '../stores/pomodoroStore'
 
-// Constants
-const WORK_DURATION = 25 * 60 // 25 minutes in seconds
-const SHORT_BREAK_DURATION = 5 * 60 // 5 minutes in seconds
-const LONG_BREAK_DURATION = 15 * 60 // 15 minutes in seconds
-const CYCLES_BEFORE_LONG_BREAK = 4
+const pomodoroStore = usePomodoroStore()
 
-type TimerPhase = 'work' | 'shortBreak' | 'longBreak'
-
-// State
-const timeLeft = ref<number>(WORK_DURATION)
-const isRunning = ref<boolean>(false)
-const currentPhase = ref<TimerPhase>('work')
-const completedCycles = ref<number>(0)
+// Non-persistent UI state
 const showCompletionDialog = ref<boolean>(false)
-const lastCompletedPhase = ref<TimerPhase>('work')
+const lastCompletedPhase = ref<string>('work')
 
-let intervalId: ReturnType<typeof setInterval> | null = null
-
-// Computed properties
-const initialDuration = computed<number>(() => {
-  switch (currentPhase.value) {
-    case 'work':
-      return WORK_DURATION
-    case 'shortBreak':
-      return SHORT_BREAK_DURATION
-    case 'longBreak':
-      return LONG_BREAK_DURATION
-    default:
-      return WORK_DURATION
+// Watch for timer completion to show dialog
+watch(() => pomodoroStore.timeLeft, (newTimeLeft, oldTimeLeft) => {
+  // If timer went from >0 to 0, a phase completed
+  if (oldTimeLeft > 0 && newTimeLeft === pomodoroStore.initialDuration && !pomodoroStore.isRunning) {
+    lastCompletedPhase.value = pomodoroStore.currentPhase === 'work' ? 'shortBreak' : 'work'
+    showCompletionDialog.value = true
+    playNotificationSound()
   }
 })
 
-const formattedTime = computed<string>(() => {
-  const minutes = Math.floor(timeLeft.value / 60)
-  const seconds = timeLeft.value % 60
-  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-})
-
-const progressPercentage = computed<number>(() => {
-  return ((initialDuration.value - timeLeft.value) / initialDuration.value) * 100
-})
-
-// Timer functions
+// Timer functions that handle UI feedback
 const toggleTimer = (): void => {
-  if (isRunning.value) {
-    pauseTimer()
-  } else {
-    startTimer()
-  }
-}
-
-const startTimer = (): void => {
-  isRunning.value = true
-  intervalId = globalThis.setInterval(() => {
-    if (timeLeft.value > 0) {
-      timeLeft.value--
-    } else {
-      completePhase()
-    }
-  }, 1000)
-}
-
-const pauseTimer = (): void => {
-  isRunning.value = false
-  if (intervalId) {
-    globalThis.clearInterval(intervalId)
-    intervalId = null
-  }
+  pomodoroStore.toggleTimer()
 }
 
 const resetTimer = (): void => {
-  pauseTimer()
-  timeLeft.value = initialDuration.value
-}
-
-const completePhase = (): void => {
-  pauseTimer()
-  lastCompletedPhase.value = currentPhase.value
-  
-  if (currentPhase.value === 'work') {
-    completedCycles.value++
-    // Determine next break type
-    if (completedCycles.value % CYCLES_BEFORE_LONG_BREAK === 0) {
-      currentPhase.value = 'longBreak'
-    } else {
-      currentPhase.value = 'shortBreak'
-    }
-  } else {
-    // Break completed, back to work
-    currentPhase.value = 'work'
-  }
-  
-  timeLeft.value = initialDuration.value
-  showCompletionDialog.value = true
-  
-  // Play notification sound (if supported)
-  playNotificationSound()
+  pomodoroStore.resetTimer()
 }
 
 const skipPhase = (): void => {
-  pauseTimer()
-  completePhase()
+  lastCompletedPhase.value = pomodoroStore.currentPhase
+  pomodoroStore.skipPhase()
+  showCompletionDialog.value = true
+  playNotificationSound()
 }
 
 const startNextPhase = (): void => {
   showCompletionDialog.value = false
-  startTimer()
+  pomodoroStore.startTimer()
 }
 
 const dismissDialog = (): void => {
@@ -211,7 +140,6 @@ const dismissDialog = (): void => {
 
 const playNotificationSound = (): void => {
   try {
-    // Create a simple beep sound using Web Audio API
     const AudioContextClass = (globalThis as any).AudioContext || (globalThis as any).webkitAudioContext
     if (!AudioContextClass) return
     
@@ -229,16 +157,13 @@ const playNotificationSound = (): void => {
     oscillator.start(audioContext.currentTime)
     oscillator.stop(audioContext.currentTime + 0.5)
   } catch (error) {
-    // Fallback: just log if audio is not supported
     console.log('Timer completed!')
   }
 }
 
 // Cleanup
 onUnmounted(() => {
-  if (intervalId) {
-    globalThis.clearInterval(intervalId)
-  }
+  pomodoroStore.cleanup()
 })
 </script>
 

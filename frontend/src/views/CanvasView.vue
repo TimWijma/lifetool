@@ -14,13 +14,8 @@
       ></v-btn>
     </div>
 
-    <!-- Debug info -->
-    <div class="debug-info">
-      Windows: P:{{ getWindow(WindowType.POMODORO)?.isVisible ? 'ON' : 'OFF' }} | T:{{ getWindow(WindowType.TODO)?.isVisible ? 'ON' : 'OFF' }}
-    </div>
-
     <DraggableWindow
-      v-for="windowInstance in visibleWindows"
+      v-for="windowInstance in windowStore.visibleWindows"
       :key="windowInstance.id"
       :title="windowInstance.title"
       :x="windowInstance.x"
@@ -41,39 +36,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, onUnmounted, type Component } from 'vue'
+import { onUnmounted, type Component } from 'vue'
 import DraggableWindow from '../components/DraggableWindow.vue'
 import PomodoroTimerWindow from '../components/PomodoroTimerWindow.vue'
 import TodoListWindow from '../components/TodoListWindow.vue'
+import { useWindowStore, WindowType, type WindowConfig } from '../stores/windowStore'
 
-enum WindowType {
-  POMODORO = 'pomodoro',
-  TODO = 'todo'
-}
-
-interface WindowConfig {
-  title: string
-  defaultX: number
-  defaultY: number
-  icon: string
-  component: Component
-  minWidth: number
-  minHeight: number
-  defaultWidth: number
-  defaultHeight: number
-}
-
-interface WindowState {
-  id: number
-  type: WindowType
-  title: string
-  x: number
-  y: number
-  width: number
-  height: number
-  isVisible: boolean
-  zIndex: number
-}
+const windowStore = useWindowStore()
 
 const WINDOW_CONFIGS: Record<WindowType, WindowConfig> = {
   [WindowType.POMODORO]: { 
@@ -100,55 +69,13 @@ const WINDOW_CONFIGS: Record<WindowType, WindowConfig> = {
   }
 }
 
-let windowIdCounter = 0
-const maxZIndex = ref(100)
-
-// Create reactive window states using Map
-const windowStates = ref<Map<WindowType, WindowState>>(new Map())
-
 // Initialize windows
-const initializeWindows = () => {
-  windowStates.value.set(WindowType.POMODORO, reactive({
-    id: ++windowIdCounter,
-    type: WindowType.POMODORO,
-    title: WINDOW_CONFIGS[WindowType.POMODORO].title,
-    x: WINDOW_CONFIGS[WindowType.POMODORO].defaultX,
-    y: WINDOW_CONFIGS[WindowType.POMODORO].defaultY,
-    width: WINDOW_CONFIGS[WindowType.POMODORO].defaultWidth,
-    height: WINDOW_CONFIGS[WindowType.POMODORO].defaultHeight,
-    isVisible: false,
-    zIndex: maxZIndex.value++
-  }))
-
-  windowStates.value.set(WindowType.TODO, reactive({
-    id: ++windowIdCounter,
-    type: WindowType.TODO,
-    title: WINDOW_CONFIGS[WindowType.TODO].title,
-    x: WINDOW_CONFIGS[WindowType.TODO].defaultX,
-    y: WINDOW_CONFIGS[WindowType.TODO].defaultY,
-    width: WINDOW_CONFIGS[WindowType.TODO].defaultWidth,
-    height: WINDOW_CONFIGS[WindowType.TODO].defaultHeight,
-    isVisible: false,
-    zIndex: maxZIndex.value++
-  }))
-}
-
-// Initialize windows on setup
-initializeWindows()
-
-// Computed property to get only visible windows (memoized)
-const visibleWindows = computed(() => {
-  const visible: WindowState[] = []
-  for (const windowState of windowStates.value.values()) {
-    if (windowState.isVisible) {
-      visible.push(windowState)
-    }
-  }
-  return visible
+Object.entries(WINDOW_CONFIGS).forEach(([type, config]) => {
+  windowStore.initializeWindow(type as WindowType, config)
 })
 
-const getWindow = (type: WindowType): WindowState | undefined => {
-  return windowStates.value.get(type)
+const getWindow = (type: WindowType) => {
+  return windowStore.getWindow(type)
 }
 
 const getWindowComponent = (type: WindowType): Component => {
@@ -156,61 +83,29 @@ const getWindowComponent = (type: WindowType): Component => {
 }
 
 const toggleWindow = (type: WindowType): void => {
-  const windowState = windowStates.value.get(type)
-  if (windowState) {
-    windowState.isVisible = !windowState.isVisible
-  }
+  windowStore.toggleWindow(type)
 }
 
 const closeWindow = (type: WindowType): void => {
-  const windowState = windowStates.value.get(type)
-  if (windowState) {
-    windowState.isVisible = false
-  }
+  windowStore.closeWindow(type)
 }
 
 const updateWindowPosition = (type: WindowType, position: { x: number; y: number }): void => {
-  const windowState = windowStates.value.get(type)
-  if (!windowState) return
-
-  // Apply boundary constraints using current window dimensions
-  const viewportWidth = globalThis.window.innerWidth
-  const viewportHeight = globalThis.window.innerHeight
-  
-  const maxX = Math.max(0, viewportWidth - windowState.width)
-  const maxY = Math.max(0, viewportHeight - windowState.height)
-  
-  windowState.x = Math.max(0, Math.min(position.x, maxX))
-  windowState.y = Math.max(0, Math.min(position.y, maxY))
+  windowStore.updateWindowPosition(type, position)
 }
 
 const updateWindowSize = (type: WindowType, size: { width: number; height: number }): void => {
-  const windowState = windowStates.value.get(type)
-  if (!windowState) return
-
   const config = WINDOW_CONFIGS[type]
-  const viewportWidth = globalThis.window.innerWidth
-  const viewportHeight = globalThis.window.innerHeight
-  
-  // Apply minimum and maximum constraints
-  windowState.width = Math.max(config.minWidth, Math.min(size.width, viewportWidth))
-  windowState.height = Math.max(config.minHeight, Math.min(size.height, viewportHeight))
-  
-  // Ensure window doesn't go out of bounds after resize
-  updateWindowPosition(type, { x: windowState.x, y: windowState.y })
+  windowStore.updateWindowSize(type, size, config)
 }
 
 const bringToFront = (type: WindowType): void => {
-  const windowState = windowStates.value.get(type)
-  if (windowState) {
-    maxZIndex.value += 1
-    windowState.zIndex = maxZIndex.value
-  }
+  windowStore.bringToFront(type)
 }
 
 // Cleanup on unmount
 onUnmounted(() => {
-  windowStates.value.clear()
+  windowStore.cleanup()
 })
 </script>
 
@@ -230,18 +125,6 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  z-index: 2000;
-}
-
-.debug-info {
-  position: fixed;
-  top: 10px;
-  left: 10px;
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-  padding: 8px;
-  border-radius: 4px;
-  font-size: 12px;
   z-index: 2000;
 }
 </style>

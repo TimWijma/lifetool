@@ -15,31 +15,31 @@
     ></v-text-field>
     
     <!-- Todo statistics -->
-    <v-row class="mb-3" v-if="todos.length > 0">
+    <v-row class="mb-3" v-if="todoStore.todos.length > 0">
       <v-col cols="12">
         <v-chip-group class="justify-center">
           <v-chip color="primary" size="small">
-            Total: {{ todos.length }}
+            Total: {{ todoStore.todos.length }}
           </v-chip>
           <v-chip color="success" size="small">
-            Completed: {{ completedCount }}
+            Completed: {{ todoStore.completedCount }}
           </v-chip>
           <v-chip color="warning" size="small">
-            Remaining: {{ remainingCount }}
+            Remaining: {{ todoStore.remainingCount }}
           </v-chip>
         </v-chip-group>
       </v-col>
     </v-row>
 
     <!-- Bulk actions -->
-    <v-row class="mb-3" v-if="todos.length > 0">
+    <v-row class="mb-3" v-if="todoStore.todos.length > 0">
       <v-col cols="12" class="text-center">
         <v-btn
           size="small"
           variant="outlined"
           color="success"
           @click="markAllComplete"
-          :disabled="allCompleted"
+          :disabled="todoStore.allCompleted"
           class="mr-2"
         >
           <v-icon start>mdi-check-all</v-icon>
@@ -50,7 +50,7 @@
           variant="outlined"
           color="warning"
           @click="clearCompleted"
-          :disabled="completedCount === 0"
+          :disabled="todoStore.completedCount === 0"
         >
           <v-icon start>mdi-delete-sweep</v-icon>
           Clear Completed
@@ -59,9 +59,9 @@
     </v-row>
     
     <!-- Todo list -->
-    <v-list v-if="todos.length > 0" class="todo-list">
+    <v-list v-if="todoStore.todos.length > 0" class="todo-list">
       <v-list-item
-        v-for="todo in todos"
+        v-for="todo in todoStore.todos"
         :key="todo.id"
         class="px-0 todo-item"
         :class="{ 'completed-todo': todo.completed }"
@@ -71,7 +71,7 @@
             v-model="todo.completed"
             color="primary"
             hide-details
-            @change="onTodoToggle(todo)"
+            @change="onTodoToggle(todo.id)"
             :aria-label="`Mark '${todo.text}' as ${todo.completed ? 'incomplete' : 'complete'}`"
           ></v-checkbox>
         </template>
@@ -84,9 +84,9 @@
           <v-text-field
             v-else
             v-model="todo.editText"
-            @keyup.enter="saveTodoEdit(todo)"
-            @keyup.escape="cancelTodoEdit(todo)"
-            @blur="saveTodoEdit(todo)"
+            @keyup.enter="saveTodoEdit(todo.id)"
+            @keyup.escape="cancelTodoEdit(todo.id)"
+            @blur="saveTodoEdit(todo.id)"
             hide-details
             density="compact"
             autofocus
@@ -104,7 +104,7 @@
             icon="mdi-pencil"
             size="small"
             variant="text"
-            @click="startTodoEdit(todo)"
+            @click="startTodoEdit(todo.id)"
             :aria-label="`Edit todo: ${todo.text}`"
             class="mr-1"
           ></v-btn>
@@ -130,124 +130,69 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref } from 'vue'
+import { useTodoStore } from '../stores/todoStore'
 
-interface Todo {
-  id: string
-  text: string
-  completed: boolean
-  createdAt: Date
-  completedAt?: Date
-  isEditing?: boolean
-  editText?: string
-}
-
+const todoStore = useTodoStore()
 const newTodo = ref<string>('')
-const todos = ref<Todo[]>([])
 const inputError = ref<string>('')
 
 // Computed properties
-const completedCount = computed(() => todos.value.filter(todo => todo.completed).length)
-const remainingCount = computed(() => todos.value.filter(todo => !todo.completed).length)
-const allCompleted = computed(() => todos.value.length > 0 && completedCount.value === todos.value.length)
-
-// Local storage key
-const STORAGE_KEY = 'lifetool-todos'
-
-// Load todos from localStorage on mount
-onMounted(() => {
-  loadTodos()
-})
-
-// Watch todos and save to localStorage
-watch(todos, () => {
-  saveTodos()
-}, { deep: true })
-
-const generateId = (): string => {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2)
-}
-
-const validateTodo = (text: string): string => {
-  const trimmed = text.trim()
-  if (!trimmed) {
-    return 'Todo cannot be empty'
-  }
-  if (trimmed.length > 200) {
-    return 'Todo cannot exceed 200 characters'
-  }
-  if (todos.value.some(todo => todo.text.toLowerCase() === trimmed.toLowerCase())) {
-    return 'This todo already exists'
-  }
-  return ''
-}
-
 const clearInputError = (): void => {
   inputError.value = ''
 }
 
 const addTodo = (): void => {
-  const error = validateTodo(newTodo.value)
-  if (error) {
-    inputError.value = error
-    return
+  try {
+    todoStore.addTodo(newTodo.value)
+    newTodo.value = ''
+    inputError.value = ''
+  } catch (error) {
+    inputError.value = error instanceof Error ? error.message : 'Failed to add todo'
   }
-
-  todos.value.push({
-    id: generateId(),
-    text: newTodo.value.trim(),
-    completed: false,
-    createdAt: new Date()
-  })
-  newTodo.value = ''
-  inputError.value = ''
 }
 
 const removeTodo = (id: string): void => {
-  const index = todos.value.findIndex(todo => todo.id === id)
-  if (index !== -1) {
-    todos.value.splice(index, 1)
+  todoStore.removeTodo(id)
+}
+
+const onTodoToggle = (id: string): void => {
+  todoStore.toggleTodo(id)
+}
+
+const startTodoEdit = (id: string): void => {
+  const todo = todoStore.todos.find(t => t.id === id)
+  if (todo) {
+    todo.isEditing = true
+    todo.editText = todo.text
   }
 }
 
-const onTodoToggle = (todo: Todo): void => {
-  if (todo.completed) {
-    todo.completedAt = new Date()
-  } else {
-    delete todo.completedAt
+const saveTodoEdit = (id: string): void => {
+  const todo = todoStore.todos.find(t => t.id === id)
+  if (todo && todo.editText?.trim()) {
+    todoStore.updateTodo(id, todo.editText)
+  }
+  if (todo) {
+    todo.isEditing = false
+    delete todo.editText
   }
 }
 
-const startTodoEdit = (todo: Todo): void => {
-  todo.isEditing = true
-  todo.editText = todo.text
-}
-
-const saveTodoEdit = (todo: Todo): void => {
-  if (todo.editText?.trim()) {
-    todo.text = todo.editText.trim()
+const cancelTodoEdit = (id: string): void => {
+  const todo = todoStore.todos.find(t => t.id === id)
+  if (todo) {
+    todo.isEditing = false
+    delete todo.editText
   }
-  todo.isEditing = false
-  delete todo.editText
-}
-
-const cancelTodoEdit = (todo: Todo): void => {
-  todo.isEditing = false
-  delete todo.editText
 }
 
 const markAllComplete = (): void => {
-  const now = new Date()
-  todos.value.forEach(todo => {
-    if (!todo.completed) {
-      todo.completed = true
-      todo.completedAt = now
-    }
-  })
+  todoStore.markAllComplete()
 }
 
 const clearCompleted = (): void => {
-  todos.value = todos.value.filter(todo => !todo.completed)
+  todoStore.clearCompleted()
 }
 
 const formatDate = (date: Date): string => {
@@ -257,31 +202,6 @@ const formatDate = (date: Date): string => {
     hour: '2-digit',
     minute: '2-digit'
   }).format(new Date(date))
-}
-
-const saveTodos = (): void => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(todos.value))
-  } catch (error) {
-    console.warn('Failed to save todos to localStorage:', error)
-  }
-}
-
-const loadTodos = (): void => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
-      const parsed = JSON.parse(stored)
-      // Convert date strings back to Date objects
-      todos.value = parsed.map((todo: any) => ({
-        ...todo,
-        createdAt: new Date(todo.createdAt),
-        completedAt: todo.completedAt ? new Date(todo.completedAt) : undefined
-      }))
-    }
-  } catch (error) {
-    console.warn('Failed to load todos from localStorage:', error)
-  }
 }
 </script>
 

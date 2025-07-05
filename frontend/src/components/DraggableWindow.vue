@@ -1,6 +1,5 @@
 <template>
   <div
-    ref="windowRef"
     class="draggable-window"
     :style="{
       left: x + 'px',
@@ -45,6 +44,7 @@
 
 <script setup lang="ts">
 import { reactive, onUnmounted } from 'vue'
+import { safeLocalStorageOperation } from '../utils/errorHandler'
 
 interface Props {
   title?: string
@@ -97,15 +97,21 @@ const resizeState = reactive<ResizeState>({
 
 // Utility function to extract coordinates from mouse/touch events
 const getEventCoordinates = (event: MouseEvent | TouchEvent): { x: number; y: number } => {
-  if (event.type.startsWith('touch')) {
-    const touchEvent = event as TouchEvent
-    if (touchEvent.touches.length === 0) {
-      return { x: 0, y: 0 }
-    }
-    return { x: touchEvent.touches[0].clientX, y: touchEvent.touches[0].clientY }
-  }
-  const mouseEvent = event as MouseEvent
-  return { x: mouseEvent.clientX, y: mouseEvent.clientY }
+  return safeLocalStorageOperation(
+    () => {
+      if (event.type.startsWith('touch')) {
+        const touchEvent = event as TouchEvent
+        if (touchEvent.touches.length === 0) {
+          return { x: 0, y: 0 }
+        }
+        return { x: touchEvent.touches[0].clientX, y: touchEvent.touches[0].clientY }
+      }
+      const mouseEvent = event as MouseEvent
+      return { x: mouseEvent.clientX, y: mouseEvent.clientY }
+    },
+    { x: 0, y: 0 },
+    'extracting event coordinates'
+  )
 }
 
 // Cleanup function for event listeners
