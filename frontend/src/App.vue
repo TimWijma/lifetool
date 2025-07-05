@@ -6,6 +6,6 @@
   </v-app>
 </template>
 
-<script setup>
-  import CanvasView from './views/CanvasView.vue'
+<script setup lang="ts">
+import CanvasView from './views/CanvasView.vue'
 </script>
