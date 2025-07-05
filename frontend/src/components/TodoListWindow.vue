@@ -68,10 +68,10 @@
       >
         <template v-slot:prepend>
           <v-checkbox
-            v-model="todo.completed"
+            :model-value="todo.completed"
             color="primary"
             hide-details
-            @change="onTodoToggle(todo.id)"
+            @update:model-value="onTodoToggle(todo.id)"
             :aria-label="`Mark '${todo.text}' as ${todo.completed ? 'incomplete' : 'complete'}`"
           ></v-checkbox>
         </template>

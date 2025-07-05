@@ -107,6 +107,13 @@ export const useWindowStore = defineStore('windows', () => {
     const windowState = windows.value.get(type)
     if (windowState) {
       windowState.isVisible = !windowState.isVisible
+      
+      // If window is becoming visible, bring it to the front
+      if (windowState.isVisible) {
+        maxZIndex.value += 1
+        windowState.zIndex = maxZIndex.value
+      }
+      
       saveWindowStates()
     }
   }
