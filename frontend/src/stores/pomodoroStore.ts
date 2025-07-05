@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, onScopeDispose } from 'vue'
 
 // Constants
 const WORK_DURATION = 25 * 60 // 25 minutes in seconds
@@ -149,8 +149,12 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
   const cleanup = () => {
     if (intervalId) {
       globalThis.clearInterval(intervalId)
+      intervalId = null
     }
   }
+  
+  // Automatically cleanup when store scope is disposed
+  onScopeDispose(cleanup)
   
   // Initialize store
   loadState()
