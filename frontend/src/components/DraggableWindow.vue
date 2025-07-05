@@ -44,7 +44,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onUnmounted } from 'vue'
+import { reactive, onUnmounted } from 'vue'
 
 interface Props {
   title?: string
@@ -86,7 +86,6 @@ const emit = defineEmits<{
   'close': []
 }>()
 
-const windowRef = ref<HTMLElement | null>(null)
 const dragState = reactive<DragState>({ isDragging: false, offsetX: 0, offsetY: 0 })
 const resizeState = reactive<ResizeState>({ 
   isResizing: false, 
@@ -96,24 +95,47 @@ const resizeState = reactive<ResizeState>({
   startY: 0 
 })
 
+// Utility function to extract coordinates from mouse/touch events
+const getEventCoordinates = (event: MouseEvent | TouchEvent): { x: number; y: number } => {
+  if (event.type.startsWith('touch')) {
+    const touchEvent = event as TouchEvent
+    if (touchEvent.touches.length === 0) {
+      return { x: 0, y: 0 }
+    }
+    return { x: touchEvent.touches[0].clientX, y: touchEvent.touches[0].clientY }
+  }
+  const mouseEvent = event as MouseEvent
+  return { x: mouseEvent.clientX, y: mouseEvent.clientY }
+}
+
+// Cleanup function for event listeners
+const cleanupEventListeners = () => {
+  document.removeEventListener('mousemove', handleDrag)
+  document.removeEventListener('mouseup', stopDrag)
+  document.removeEventListener('touchmove', handleDrag as EventListener)
+  document.removeEventListener('touchend', stopDrag)
+  document.removeEventListener('mousemove', handleResize)
+  document.removeEventListener('mouseup', stopResize)
+  document.removeEventListener('touchmove', handleResize as EventListener)
+  document.removeEventListener('touchend', stopResize)
+}
+
 const startDrag = (event: MouseEvent | TouchEvent): void => {
   event.preventDefault()
-  event.stopPropagation() // Prevent bring-to-front when starting drag
+  event.stopPropagation()
   
-  // Bring window to front when starting drag
   emit('bring-to-front')
   
   dragState.isDragging = true
   
-  const clientX = event.type === 'touchstart' ? (event as TouchEvent).touches[0].clientX : (event as MouseEvent).clientX
-  const clientY = event.type === 'touchstart' ? (event as TouchEvent).touches[0].clientY : (event as MouseEvent).clientY
+  const { x: clientX, y: clientY } = getEventCoordinates(event)
   
   dragState.offsetX = clientX - props.x
   dragState.offsetY = clientY - props.y
   
   document.addEventListener('mousemove', handleDrag)
   document.addEventListener('mouseup', stopDrag)
-  document.addEventListener('touchmove', handleDrag)
+  document.addEventListener('touchmove', handleDrag as EventListener, { passive: false })
   document.addEventListener('touchend', stopDrag)
 }
 
@@ -122,21 +144,21 @@ const handleDrag = (event: MouseEvent | TouchEvent): void => {
   
   event.preventDefault()
   
-  const clientX = event.type === 'touchmove' ? (event as TouchEvent).touches[0].clientX : (event as MouseEvent).clientX
-  const clientY = event.type === 'touchmove' ? (event as TouchEvent).touches[0].clientY : (event as MouseEvent).clientY
+  const { x: clientX, y: clientY } = getEventCoordinates(event)
   
   const newX = clientX - dragState.offsetX
   const newY = clientY - dragState.offsetY
   
-  // Emit position change to parent - let parent handle boundary constraints
   emit('position-changed', { x: newX, y: newY })
 }
 
 const stopDrag = (): void => {
+  if (!dragState.isDragging) return
+  
   dragState.isDragging = false
   document.removeEventListener('mousemove', handleDrag)
   document.removeEventListener('mouseup', stopDrag)
-  document.removeEventListener('touchmove', handleDrag)
+  document.removeEventListener('touchmove', handleDrag as EventListener)
   document.removeEventListener('touchend', stopDrag)
 }
 
@@ -155,15 +177,14 @@ const startResize = (event: MouseEvent | TouchEvent): void => {
   resizeState.startWidth = props.width
   resizeState.startHeight = props.height
   
-  const clientX = event.type === 'touchstart' ? (event as TouchEvent).touches[0].clientX : (event as MouseEvent).clientX
-  const clientY = event.type === 'touchstart' ? (event as TouchEvent).touches[0].clientY : (event as MouseEvent).clientY
+  const { x: clientX, y: clientY } = getEventCoordinates(event)
   
   resizeState.startX = clientX
   resizeState.startY = clientY
   
   document.addEventListener('mousemove', handleResize)
   document.addEventListener('mouseup', stopResize)
-  document.addEventListener('touchmove', handleResize)
+  document.addEventListener('touchmove', handleResize as EventListener, { passive: false })
   document.addEventListener('touchend', stopResize)
 }
 
@@ -172,8 +193,7 @@ const handleResize = (event: MouseEvent | TouchEvent): void => {
   
   event.preventDefault()
   
-  const clientX = event.type === 'touchmove' ? (event as TouchEvent).touches[0].clientX : (event as MouseEvent).clientX
-  const clientY = event.type === 'touchmove' ? (event as TouchEvent).touches[0].clientY : (event as MouseEvent).clientY
+  const { x: clientX, y: clientY } = getEventCoordinates(event)
   
   const deltaX = clientX - resizeState.startX
   const deltaY = clientY - resizeState.startY
@@ -181,29 +201,27 @@ const handleResize = (event: MouseEvent | TouchEvent): void => {
   const newWidth = Math.max(props.minWidth, resizeState.startWidth + deltaX)
   const newHeight = Math.max(props.minHeight, resizeState.startHeight + deltaY)
   
-  const maxWidth = Math.min(newWidth, window.innerWidth)
-  const maxHeight = Math.min(newHeight, window.innerHeight)
+  const viewportWidth = globalThis.window.innerWidth
+  const viewportHeight = globalThis.window.innerHeight
+  
+  const maxWidth = Math.min(newWidth, viewportWidth)
+  const maxHeight = Math.min(newHeight, viewportHeight)
 
   emit('size-changed', { width: maxWidth, height: maxHeight })
 }
 
 const stopResize = (): void => {
+  if (!resizeState.isResizing) return
+  
   resizeState.isResizing = false
   document.removeEventListener('mousemove', handleResize)
   document.removeEventListener('mouseup', stopResize)
-  document.removeEventListener('touchmove', handleResize)
+  document.removeEventListener('touchmove', handleResize as EventListener)
   document.removeEventListener('touchend', stopResize)
 }
 
 onUnmounted(() => {
-  document.removeEventListener('mousemove', handleDrag)
-  document.removeEventListener('mouseup', stopDrag)
-  document.removeEventListener('touchmove', handleDrag)
-  document.removeEventListener('touchend', stopDrag)
-  document.removeEventListener('mousemove', handleResize)
-  document.removeEventListener('mouseup', stopResize)
-  document.removeEventListener('touchmove', handleResize)
-  document.removeEventListener('touchend', stopResize)
+  cleanupEventListeners()
 })
 </script>
 
