@@ -29,49 +29,50 @@
       </template>
     </v-alert>
     
-    <!-- Todo statistics -->
-    <v-row class="mb-3" v-if="todoStore.filteredTodos.length > 0">
-      <v-col cols="12">
-        <v-chip-group class="justify-center">
-          <v-chip color="primary" size="small">
-            Total: {{ todoStore.filteredTodos.length }}
-          </v-chip>
-          <v-chip color="success" size="small">
-            Completed: {{ todoStore.completedCount }}
-          </v-chip>
-          <v-chip color="warning" size="small">
-            Remaining: {{ todoStore.remainingCount }}
-          </v-chip>
-        </v-chip-group>
-      </v-col>
-    </v-row>
-
-    <!-- Bulk actions -->
-    <v-row class="mb-3" v-if="todoStore.filteredTodos.length > 0">
-      <v-col cols="12" class="text-center">
-        <v-btn
-          size="small"
-          variant="outlined"
-          color="success"
-          @click="markAllComplete"
-          :disabled="todoStore.allCompleted"
-          class="mr-2"
-        >
-          <v-icon start>mdi-check-all</v-icon>
-          Complete All
-        </v-btn>
-        <v-btn
-          size="small"
-          variant="outlined"
-          color="warning"
-          @click="clearCompleted"
-          :disabled="todoStore.completedCount === 0"
-        >
-          <v-icon start>mdi-delete-sweep</v-icon>
-          Clear Completed
-        </v-btn>
-      </v-col>
-    </v-row>
+    <!-- Todo statistics and bulk actions bar -->
+    <div v-if="todoStore.filteredTodos.length > 0" class="stats-bar mb-3">
+      <div class="stats-chips">
+        <v-chip color="primary" size="x-small" variant="outlined">
+          {{ todoStore.filteredTodos.length }} total
+        </v-chip>
+        <v-chip color="success" size="x-small" variant="outlined">
+          {{ todoStore.completedCount }} done
+        </v-chip>
+        <v-chip color="warning" size="x-small" variant="outlined">
+          {{ todoStore.remainingCount }} left
+        </v-chip>
+      </div>
+      
+      <div class="bulk-actions">
+        <v-tooltip text="Complete All" location="top">
+          <template v-slot:activator="{ props }">
+            <v-btn
+              v-bind="props"
+              icon="mdi-check-all"
+              size="x-small"
+              variant="text"
+              color="success"
+              @click="markAllComplete"
+              :disabled="todoStore.allCompleted"
+            ></v-btn>
+          </template>
+        </v-tooltip>
+        
+        <v-tooltip text="Clear Completed" location="top">
+          <template v-slot:activator="{ props }">
+            <v-btn
+              v-bind="props"
+              icon="mdi-delete-sweep"
+              size="x-small"
+              variant="text"
+              color="warning"
+              @click="clearCompleted"
+              :disabled="todoStore.completedCount === 0"
+            ></v-btn>
+          </template>
+        </v-tooltip>
+      </div>
+    </div>
     
     <!-- Todo list -->
     <v-list v-if="todoStore.filteredTodos.length > 0" class="todo-list">
@@ -132,5 +133,27 @@ const clearCompleted = (): void => {
 .todo-list {
   max-height: 300px;
   overflow-y: auto;
+}
+
+.stats-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: rgba(0, 0, 0, 0.02);
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.stats-chips {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.bulk-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
 }
 </style>

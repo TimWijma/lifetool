@@ -1,89 +1,110 @@
 <template>
   <v-row class="text-center">
-    <v-col cols="12">
-      <v-chip 
-        :color="pomodoroStore.currentPhase === 'work' ? 'primary' : 'success'" 
-        class="mb-2"
-        size="small"
-      >
-        {{ pomodoroStore.currentPhase === 'work' ? 'Work Time' : 'Break Time' }}
-      </v-chip>
-      <h1 
-        :class="{ 'timer-warning': pomodoroStore.timeLeft <= 60 && pomodoroStore.isRunning }"
-        role="timer"
-        :aria-label="`${pomodoroStore.currentPhase === 'work' ? 'Work' : 'Break'} timer: ${pomodoroStore.formattedTime} remaining`"
-      >
-        {{ pomodoroStore.formattedTime }}
-      </h1>
+    <v-col cols="12" class="pb-2">
+      <!-- Phase selection tabs -->
+      <div class="phase-tabs">
+        <v-btn-toggle
+          :model-value="pomodoroStore.currentPhase"
+          @update:model-value="switchPhase"
+          color="primary"
+          variant="outlined"
+          divided
+          mandatory
+        >
+          <v-btn value="work" size="small">
+            Work
+          </v-btn>
+          <v-btn value="shortBreak" size="small">
+            Short Break
+          </v-btn>
+          <v-btn value="longBreak" size="small">
+            Long Break
+          </v-btn>
+        </v-btn-toggle>
+      </div>
+      
+      <div class="timer-display mb-4">
+        <h1 
+          :class="{ 'timer-warning': pomodoroStore.timeLeft <= 60 && pomodoroStore.isRunning }"
+          role="timer"
+          :aria-label="`${getPhaseLabel(pomodoroStore.currentPhase)} timer: ${pomodoroStore.formattedTime} remaining`"
+          class="timer-text"
+        >
+          {{ pomodoroStore.formattedTime }}
+        </h1>
+      </div>
       <v-progress-linear
         :model-value="pomodoroStore.progressPercentage"
-        :color="pomodoroStore.currentPhase === 'work' ? 'primary' : 'success'"
-        height="6"
-        class="mb-3"
+        :color="getPhaseColor(pomodoroStore.currentPhase)"
+        height="8"
+        class="mb-4 progress-bar"
+        rounded
       ></v-progress-linear>
     </v-col>
-    <v-col cols="12">
-      <v-btn 
-        @click="toggleTimer" 
-        :color="pomodoroStore.isRunning ? 'error' : 'success'"
-        :disabled="pomodoroStore.timeLeft === 0"
-        size="large"
-        class="mr-2"
-      >
-        <v-icon start>{{ pomodoroStore.isRunning ? 'mdi-pause' : 'mdi-play' }}</v-icon>
-        {{ pomodoroStore.isRunning ? 'Pause' : (pomodoroStore.timeLeft === pomodoroStore.initialDuration ? 'Start' : 'Resume') }}
-      </v-btn>
-      <v-btn 
-        @click="resetTimer" 
-        color="secondary"
-        variant="outlined"
-        size="large"
-        class="mr-2"
-      >
-        <v-icon start>mdi-restart</v-icon>
-        Reset
-      </v-btn>
-      <v-btn 
-        @click="skipPhase"
-        color="warning"
-        variant="outlined"
-        size="large"
-        :disabled="!pomodoroStore.isRunning && pomodoroStore.timeLeft === pomodoroStore.initialDuration"
-      >
-        <v-icon start>mdi-skip-next</v-icon>
-        Skip
-      </v-btn>
-    </v-col>
-    <v-col cols="12">
-      <v-chip-group class="justify-center">
-        <v-chip 
-          v-for="i in pomodoroStore.completedCycles" 
-          :key="i"
-          color="success"
-          size="small"
+    
+    <v-col cols="12" class="py-2">
+      <div class="button-container">
+        <!-- Main play/pause button -->
+        <v-btn 
+          @click="toggleTimer" 
+          :color="pomodoroStore.isRunning ? 'error' : 'success'"
+          :disabled="pomodoroStore.timeLeft === 0"
+          size="large"
+          class="main-button"
+          elevation="2"
         >
-          {{ i }}
-        </v-chip>
-      </v-chip-group>
-      <p class="text-caption mt-2">Completed Pomodoros: {{ pomodoroStore.completedCycles }}</p>
+          <v-icon start>{{ pomodoroStore.isRunning ? 'mdi-pause' : 'mdi-play' }}</v-icon>
+          {{ pomodoroStore.isRunning ? 'Pause' : (pomodoroStore.timeLeft === pomodoroStore.initialDuration ? 'Start' : 'Resume') }}
+        </v-btn>
+        
+          <v-btn 
+            @click="skipPhase"
+            color="warning"
+            variant="outlined"
+            size="small"
+            icon
+            class="mx-1"
+            :disabled="!pomodoroStore.isRunning && pomodoroStore.timeLeft === pomodoroStore.initialDuration"
+          >
+            <v-icon>mdi-skip-next</v-icon>
+            <v-tooltip activator="parent" location="bottom">Skip Phase</v-tooltip>
+          </v-btn>
+      </div>
+    </v-col>
+    
+    <v-col cols="12" class="pt-3">
+      <div class="cycles-section">
+        <v-chip-group class="justify-center mb-2">
+          <v-chip 
+            v-for="i in pomodoroStore.completedCycles" 
+            :key="i"
+            color="success"
+            size="small"
+            variant="flat"
+          >
+            {{ i }}
+          </v-chip>
+        </v-chip-group>
+        <p class="text-caption cycles-text">Completed Pomodoros: {{ pomodoroStore.completedCycles }}</p>
+      </div>
     </v-col>
   </v-row>
 
   <!-- Timer completion dialog -->
-  <v-dialog v-model="showCompletionDialog" max-width="300" persistent>
-    <v-card>
-      <v-card-title class="text-center">
-        <v-icon large :color="lastCompletedPhase === 'work' ? 'success' : 'primary'">
+  <v-dialog v-model="showCompletionDialog" max-width="320" persistent>
+    <v-card class="completion-dialog">
+      <v-card-title class="text-center pb-2">
+        <v-icon size="48" :color="lastCompletedPhase === 'work' ? 'success' : 'primary'">
           {{ lastCompletedPhase === 'work' ? 'mdi-check-circle' : 'mdi-coffee' }}
         </v-icon>
       </v-card-title>
       <v-card-text class="text-center">
-        <h3>{{ lastCompletedPhase === 'work' ? 'Work session complete!' : 'Break time over!' }}</h3>
-        <p>{{ lastCompletedPhase === 'work' ? 'Time for a break!' : 'Ready to get back to work?' }}</p>
+        <h3 class="mb-2">{{ lastCompletedPhase === 'work' ? 'Work session complete!' : 'Break time over!' }}</h3>
+        <p class="text-body-2">{{ lastCompletedPhase === 'work' ? 'Time for a break!' : 'Ready to get back to work?' }}</p>
       </v-card-text>
-      <v-card-actions class="justify-center">
-        <v-btn color="primary" @click="startNextPhase">
-          Start {{ pomodoroStore.currentPhase === 'work' ? 'Work' : 'Break' }}
+      <v-card-actions class="justify-center pb-4">
+        <v-btn color="primary" @click="startNextPhase" variant="flat">
+          Start {{ getPhaseLabel(pomodoroStore.currentPhase) }}
         </v-btn>
         <v-btn variant="outlined" @click="dismissDialog">
           Dismiss
@@ -118,15 +139,41 @@ const toggleTimer = (): void => {
   pomodoroStore.toggleTimer()
 }
 
-const resetTimer = (): void => {
-  pomodoroStore.resetTimer()
-}
-
 const skipPhase = (): void => {
   lastCompletedPhase.value = pomodoroStore.currentPhase
   pomodoroStore.skipPhase()
   showCompletionDialog.value = true
   playNotificationSound()
+}
+
+const switchPhase = (phase: string): void => {
+  pomodoroStore.switchToPhase(phase as any)
+}
+
+const getPhaseLabel = (phase: string): string => {
+  switch (phase) {
+    case 'work':
+      return 'Work'
+    case 'shortBreak':
+      return 'Short Break'
+    case 'longBreak':
+      return 'Long Break'
+    default:
+      return 'Work'
+  }
+}
+
+const getPhaseColor = (phase: string): string => {
+  switch (phase) {
+    case 'work':
+      return 'primary'
+    case 'shortBreak':
+      return 'success'
+    case 'longBreak':
+      return 'info'
+    default:
+      return 'primary'
+  }
 }
 
 const startNextPhase = (): void => {
@@ -177,5 +224,82 @@ onUnmounted(() => {
   0% { opacity: 1; }
   50% { opacity: 0.7; }
   100% { opacity: 1; }
+}
+
+.timer-display {
+  padding: 1rem 0;
+}
+
+.timer-text {
+  font-size: 3.5rem;
+  font-weight: 300;
+  letter-spacing: 0.05em;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin: 0;
+}
+
+.progress-bar {
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.button-container {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.main-button {
+  min-width: 140px;
+  font-weight: 500;
+}
+
+.cycles-section {
+  padding-top: 0.5rem;
+}
+
+.cycles-text {
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.6);
+  margin: 0;
+}
+
+.completion-dialog {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.phase-tabs {
+  display: flex;
+  justify-content: center;
+}
+
+.phase-tabs .v-btn-toggle {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.phase-tabs .v-btn {
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0.025em;
+}
+
+/* Responsive design */
+@media (max-width: 600px) {
+  .timer-text {
+    font-size: 2.5rem;
+  }
+  
+  .button-container {
+    gap: 0.75rem;
+  }
+  
+  .phase-tabs .v-btn {
+    font-size: 0.75rem;
+    padding: 0 8px;
+  }
 }
 </style>

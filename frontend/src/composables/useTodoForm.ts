@@ -14,6 +14,7 @@ export function useTodoForm() {
 
   const addTodo = (): void => {
     try {
+      console.log('useTodoForm addTodo called with:', { text: newTodo.value, tags: newTodoTags.value }) // Debug log
       todoStore.addTodo(newTodo.value, newTodoTags.value)
       newTodo.value = ''
       newTodoTags.value = []

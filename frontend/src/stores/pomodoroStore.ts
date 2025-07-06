@@ -146,6 +146,13 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
     return completePhase()
   }
   
+  const switchToPhase = (phase: TimerPhase) => {
+    pauseTimer()
+    currentPhase.value = phase
+    timeLeft.value = initialDuration.value
+    saveState()
+  }
+  
   const cleanup = () => {
     if (intervalId) {
       globalThis.clearInterval(intervalId)
@@ -176,6 +183,7 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
     resetTimer,
     completePhase,
     skipPhase,
+    switchToPhase,
     cleanup
   }
 })

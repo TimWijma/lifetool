@@ -13,6 +13,7 @@ export interface WindowConfig {
   defaultY: number
   icon: string
   component: Component
+  headerComponent?: Component
   minWidth: number
   minHeight: number
   defaultWidth: number

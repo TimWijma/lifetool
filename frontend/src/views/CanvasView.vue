@@ -1,6 +1,5 @@
 <template>
   <div class="canvas-container">
-    <!-- Simple floating action buttons with state indicators -->
     <div class="fab-container">
       <v-btn
         v-for="(config, type) in WINDOW_CONFIGS"
@@ -30,6 +29,12 @@
       @size-changed="updateWindowSize(windowInstance.type, $event)"
       @close="closeWindow(windowInstance.type)"
     >
+      <template #header v-if="WINDOW_CONFIGS[windowInstance.type].headerComponent">
+        <component 
+          :is="WINDOW_CONFIGS[windowInstance.type].headerComponent!" 
+          :title="windowInstance.title" 
+        />
+      </template>
       <component :is="getWindowComponent(windowInstance.type)" />
     </DraggableWindow>
   </div>
@@ -40,6 +45,8 @@ import { onUnmounted, type Component } from 'vue'
 import DraggableWindow from '../components/DraggableWindow.vue'
 import PomodoroTimerWindow from '../components/PomodoroTimerWindow.vue'
 import TodoListWindow from '../components/TodoListWindow.vue'
+import PomodoroWindowHeader from '../components/PomodoroWindowHeader.vue'
+import TodoWindowHeader from '../components/TodoWindowHeader.vue'
 import { useWindowStore, WindowType, type WindowConfig } from '../stores/windowStore'
 
 const windowStore = useWindowStore()
@@ -51,6 +58,7 @@ const WINDOW_CONFIGS: Record<WindowType, WindowConfig> = {
     defaultY: 100, 
     icon: 'mdi-timer',
     component: PomodoroTimerWindow,
+    headerComponent: PomodoroWindowHeader,
     minWidth: 320,
     minHeight: 180,
     defaultWidth: 400,
@@ -62,6 +70,7 @@ const WINDOW_CONFIGS: Record<WindowType, WindowConfig> = {
     defaultY: 150, 
     icon: 'mdi-format-list-bulleted',
     component: TodoListWindow,
+    headerComponent: TodoWindowHeader,
     minWidth: 350,
     minHeight: 200,
     defaultWidth: 450,

@@ -10,23 +10,11 @@
     }"
     @mousedown="emit('bring-to-front')"
   >
-    <div
-      class="window-header"
-      @mousedown="startDrag"
-      @touchstart="startDrag"
-    >
-      <div class="drag-handle">
-        <v-icon size="small" class="drag-icon">mdi-drag</v-icon>
-        <span class="window-title">{{ title }}</span>
-      </div>
-      <v-btn
-        icon="mdi-close"
-        size="x-small"
-        variant="text"
-        @click="closeWindow"
-        class="close-btn"
-      ></v-btn>
-    </div>
+    <!-- Custom header slot with fallback to default -->
+    <slot name="header" :title="title" :startDrag="startDrag" :closeWindow="closeWindow">
+      <WindowHeader :title="title" />
+    </slot>
+    
     <div class="window-content">
       <slot></slot>
     </div>
@@ -43,8 +31,9 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, onUnmounted } from 'vue'
+import { reactive, onUnmounted, provide } from 'vue'
 import { safeLocalStorageOperation } from '../utils/errorHandler'
+import WindowHeader from './WindowHeader.vue'
 
 interface Props {
   title?: string
@@ -225,6 +214,10 @@ const stopResize = (): void => {
   document.removeEventListener('touchmove', handleResize as EventListener)
   document.removeEventListener('touchend', stopResize)
 }
+
+// Provide drag and close functions for custom headers
+provide('startDrag', startDrag)
+provide('closeWindow', closeWindow)
 
 onUnmounted(() => {
   cleanupEventListeners()
