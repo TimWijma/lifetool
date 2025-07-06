@@ -7,25 +7,15 @@
                 <div class="stats-indicator">
                     <v-chip
                         v-if="todoStore.activeTag !== 'all'"
-                        :color="
-                            todoStore.activeTag === 'untagged'
-                                ? 'grey'
-                                : 'primary'
-                        "
+                        :color="todoStore.activeTag === 'untagged' ? 'grey' : 'primary'"
                         size="x-small"
                         variant="outlined"
                         class="tag-chip">
-                        {{
-                            todoStore.activeTag === "untagged"
-                                ? "Untagged"
-                                : todoStore.activeTag
-                        }}
+                        {{ todoStore.activeTag === "untagged" ? "Untagged" : todoStore.activeTag }}
                     </v-chip>
-                    <span class="stats-mini"
-                        >{{ todoStore.remainingCount }}/{{
-                            todoStore.filteredTodos.length
-                        }}</span
-                    >
+                    <span class="stats-mini">
+                        {{ todoStore.remainingCount }}/{{ todoStore.filteredTodos.length }}
+                    </span>
                 </div>
             </div>
         </div>
@@ -38,9 +28,7 @@
                 @click.stop="focusAddTodo"
                 color="primary"
                 class="action-btn">
-                <v-tooltip activator="parent" location="bottom"
-                    >Add Todo</v-tooltip
-                >
+                <v-tooltip activator="parent" location="bottom">Add Todo</v-tooltip>
             </v-btn>
             <v-btn
                 icon="mdi-close"
@@ -67,8 +55,7 @@ withDefaults(defineProps<Props>(), {
 const todoStore = useTodoStore();
 
 // Inject drag and close functions from DraggableWindow
-const startDrag =
-    inject<(event: MouseEvent | TouchEvent) => void>("startDrag")!;
+const startDrag = inject<(event: MouseEvent | TouchEvent) => void>("startDrag")!;
 const closeWindow = inject<(event: Event) => void>("closeWindow")!;
 
 const focusAddTodo = (): void => {

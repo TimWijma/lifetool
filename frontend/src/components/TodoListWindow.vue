@@ -1,12 +1,8 @@
 <template>
     <div class="todo-container">
-        <!-- Tag filter tabs -->
         <TodoTagTabs />
-
-        <!-- Add todo form -->
         <TodoForm />
 
-        <!-- Current view indicator -->
         <v-alert
             v-if="todoStore.activeTag !== 'all'"
             type="info"
@@ -23,10 +19,7 @@
                     : `"${todoStore.activeTag}" tag`
             }}
             <template v-slot:append>
-                <v-btn
-                    size="x-small"
-                    variant="text"
-                    @click="todoStore.setActiveTag('all')">
+                <v-btn size="x-small" variant="text" @click="todoStore.setActiveTag('all')">
                     Show All
                 </v-btn>
             </template>
@@ -88,9 +81,7 @@
 
         <!-- Empty state -->
         <v-card v-else class="text-center pa-6" variant="outlined">
-            <v-icon size="64" color="grey-lighten-1" class="mb-3"
-                >mdi-format-list-bulleted</v-icon
-            >
+            <v-icon size="64" color="grey-lighten-1" class="mb-3">mdi-format-list-bulleted</v-icon>
             <h3 class="text-h6 mb-2">
                 {{
                     todoStore.activeTag === "all"

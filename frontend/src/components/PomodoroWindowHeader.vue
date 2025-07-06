@@ -5,16 +5,17 @@
             <div class="header-content">
                 <span class="window-title">{{ title }}</span>
                 <div class="phase-indicator">
-                    <v-chip
-                        :color="getPhaseColor(pomodoroStore.currentPhase)"
-                        size="x-small"
-                        variant="flat"
-                        class="phase-chip">
-                        {{ getPhaseLabel(pomodoroStore.currentPhase) }}
-                    </v-chip>
-                    <span class="timer-mini">{{
-                        pomodoroStore.formattedTime
-                    }}</span>
+                    <span class="timer-mini">
+                        {{ pomodoroStore.formattedTime }}
+                    </span>
+                    <div class="phases-completed">
+                        <span
+                            v-for="_ in pomodoroStore.completedCycles"
+                            :key="_"
+                            class="phase-chip"
+                            color="primary"
+                            variant="filled"></span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -51,38 +52,11 @@ withDefaults(defineProps<Props>(), {
 const pomodoroStore = usePomodoroStore();
 
 // Inject drag and close functions from DraggableWindow
-const startDrag =
-    inject<(event: MouseEvent | TouchEvent) => void>("startDrag")!;
+const startDrag = inject<(event: MouseEvent | TouchEvent) => void>("startDrag")!;
 const closeWindow = inject<(event: Event) => void>("closeWindow")!;
 
 const toggleTimer = (): void => {
     pomodoroStore.toggleTimer();
-};
-
-const getPhaseLabel = (phase: string): string => {
-    switch (phase) {
-        case "work":
-            return "Work";
-        case "shortBreak":
-            return "Short Break";
-        case "longBreak":
-            return "Long Break";
-        default:
-            return "Work";
-    }
-};
-
-const getPhaseColor = (phase: string): string => {
-    switch (phase) {
-        case "work":
-            return "primary";
-        case "shortBreak":
-            return "success";
-        case "longBreak":
-            return "info";
-        default:
-            return "primary";
-    }
 };
 </script>
 
@@ -129,16 +103,23 @@ const getPhaseColor = (phase: string): string => {
     gap: 6px;
 }
 
-.phase-chip {
-    font-size: 10px;
-    height: 18px;
-}
-
 .timer-mini {
     font-size: 11px;
     color: #666;
     font-weight: 500;
     font-family: monospace;
+}
+
+.phases-completed {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+.phase-chip {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: rgb(var(--v-theme-primary));
 }
 
 .header-actions {

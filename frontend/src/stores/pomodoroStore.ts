@@ -7,11 +7,15 @@ const SHORT_BREAK_DURATION = 5 * 60; // 5 minutes in seconds
 const LONG_BREAK_DURATION = 15 * 60; // 15 minutes in seconds
 const CYCLES_BEFORE_LONG_BREAK = 4;
 
-export type TimerPhase = "work" | "shortBreak" | "longBreak";
+export const enum TimerPhases {
+    Work = "Work",
+    ShortBreak = "Short Break",
+    LongBreak = "Long Break",
+}
 
 interface PomodoroState {
     timeLeft: number;
-    currentPhase: TimerPhase;
+    currentPhase: TimerPhases;
     completedCycles: number;
     isRunning: boolean;
 }
@@ -19,7 +23,7 @@ interface PomodoroState {
 export const usePomodoroStore = defineStore("pomodoro", () => {
     // State
     const timeLeft = ref<number>(WORK_DURATION);
-    const currentPhase = ref<TimerPhase>("work");
+    const currentPhase = ref<TimerPhases>(TimerPhases.Work);
     const completedCycles = ref<number>(0);
     const isRunning = ref<boolean>(false);
 
@@ -38,10 +42,7 @@ export const usePomodoroStore = defineStore("pomodoro", () => {
                 isRunning.value = false;
             }
         } catch (error) {
-            console.warn(
-                "Failed to load pomodoro state from localStorage:",
-                error
-            );
+            console.warn("Failed to load pomodoro state from localStorage:", error);
         }
     };
 
@@ -56,21 +57,18 @@ export const usePomodoroStore = defineStore("pomodoro", () => {
             };
             localStorage.setItem("lifetool-pomodoro", JSON.stringify(state));
         } catch (error) {
-            console.warn(
-                "Failed to save pomodoro state to localStorage:",
-                error
-            );
+            console.warn("Failed to save pomodoro state to localStorage:", error);
         }
     };
 
     // Getters
     const initialDuration = computed(() => {
         switch (currentPhase.value) {
-            case "work":
+            case TimerPhases.Work:
                 return WORK_DURATION;
-            case "shortBreak":
+            case TimerPhases.ShortBreak:
                 return SHORT_BREAK_DURATION;
-            case "longBreak":
+            case TimerPhases.LongBreak:
                 return LONG_BREAK_DURATION;
             default:
                 return WORK_DURATION;
@@ -80,16 +78,11 @@ export const usePomodoroStore = defineStore("pomodoro", () => {
     const formattedTime = computed(() => {
         const minutes = Math.floor(timeLeft.value / 60);
         const seconds = timeLeft.value % 60;
-        return `${minutes.toString().padStart(2, "0")}:${seconds
-            .toString()
-            .padStart(2, "0")}`;
+        return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
     });
 
     const progressPercentage = computed(() => {
-        return (
-            ((initialDuration.value - timeLeft.value) / initialDuration.value) *
-            100
-        );
+        return ((initialDuration.value - timeLeft.value) / initialDuration.value) * 100;
     });
 
     // Actions
@@ -133,17 +126,17 @@ export const usePomodoroStore = defineStore("pomodoro", () => {
     const completePhase = () => {
         pauseTimer();
 
-        if (currentPhase.value === "work") {
+        if (currentPhase.value === TimerPhases.Work) {
             completedCycles.value++;
             // Determine next break type
             if (completedCycles.value % CYCLES_BEFORE_LONG_BREAK === 0) {
-                currentPhase.value = "longBreak";
+                currentPhase.value = TimerPhases.LongBreak;
             } else {
-                currentPhase.value = "shortBreak";
+                currentPhase.value = TimerPhases.ShortBreak;
             }
         } else {
             // Break completed, back to work
-            currentPhase.value = "work";
+            currentPhase.value = TimerPhases.Work;
         }
 
         timeLeft.value = initialDuration.value;
@@ -157,7 +150,7 @@ export const usePomodoroStore = defineStore("pomodoro", () => {
         return completePhase();
     };
 
-    const switchToPhase = (phase: TimerPhase) => {
+    const switchToPhase = (phase: TimerPhases) => {
         pauseTimer();
         currentPhase.value = phase;
         timeLeft.value = initialDuration.value;

@@ -10,31 +10,27 @@
                     variant="outlined"
                     divided
                     mandatory>
-                    <v-btn value="work" size="small"> Work </v-btn>
-                    <v-btn value="shortBreak" size="small"> Short Break </v-btn>
-                    <v-btn value="longBreak" size="small"> Long Break </v-btn>
+                    <v-btn :value="TimerPhases.Work" size="small">Work</v-btn>
+                    <v-btn :value="TimerPhases.ShortBreak" size="small">Short Break</v-btn>
+                    <v-btn :value="TimerPhases.LongBreak" size="small">Long Break</v-btn>
                 </v-btn-toggle>
             </div>
 
             <div class="timer-display mb-4">
                 <h1
                     :class="{
-                        'timer-warning':
-                            pomodoroStore.timeLeft <= 60 &&
-                            pomodoroStore.isRunning,
+                        'timer-warning': pomodoroStore.timeLeft <= 60 && pomodoroStore.isRunning,
                     }"
                     role="timer"
-                    :aria-label="`${getPhaseLabel(
-                        pomodoroStore.currentPhase
-                    )} timer: ${pomodoroStore.formattedTime} remaining`"
+                    :aria-label="`Timer: ${pomodoroStore.formattedTime} remaining`"
                     class="timer-text">
                     {{ pomodoroStore.formattedTime }}
                 </h1>
             </div>
             <v-progress-linear
                 :model-value="pomodoroStore.progressPercentage"
-                :color="getPhaseColor(pomodoroStore.currentPhase)"
                 height="8"
+                color="primary"
                 class="mb-4 progress-bar"
                 rounded></v-progress-linear>
         </v-col>
@@ -49,14 +45,11 @@
                     size="large"
                     class="main-button"
                     elevation="2">
-                    <v-icon start>{{
-                        pomodoroStore.isRunning ? "mdi-pause" : "mdi-play"
-                    }}</v-icon>
+                    <v-icon start>{{ pomodoroStore.isRunning ? "mdi-pause" : "mdi-play" }}</v-icon>
                     {{
                         pomodoroStore.isRunning
                             ? "Pause"
-                            : pomodoroStore.timeLeft ===
-                              pomodoroStore.initialDuration
+                            : pomodoroStore.timeLeft === pomodoroStore.initialDuration
                             ? "Start"
                             : "Resume"
                     }}
@@ -74,28 +67,8 @@
                         pomodoroStore.timeLeft === pomodoroStore.initialDuration
                     ">
                     <v-icon>mdi-skip-next</v-icon>
-                    <v-tooltip activator="parent" location="bottom"
-                        >Skip Phase</v-tooltip
-                    >
+                    <v-tooltip activator="parent" location="bottom">Skip Phase</v-tooltip>
                 </v-btn>
-            </div>
-        </v-col>
-
-        <v-col cols="12" class="pt-3">
-            <div class="cycles-section">
-                <v-chip-group class="justify-center mb-2">
-                    <v-chip
-                        v-for="i in pomodoroStore.completedCycles"
-                        :key="i"
-                        color="success"
-                        size="small"
-                        variant="flat">
-                        {{ i }}
-                    </v-chip>
-                </v-chip-group>
-                <p class="text-caption cycles-text">
-                    Completed Pomodoros: {{ pomodoroStore.completedCycles }}
-                </p>
             </div>
         </v-col>
     </v-row>
@@ -103,12 +76,12 @@
 
 <script setup lang="ts">
 import { ref, onUnmounted, watch } from "vue";
-import { usePomodoroStore } from "../stores/pomodoroStore";
+import { TimerPhases, usePomodoroStore } from "../stores/pomodoroStore";
 
 const pomodoroStore = usePomodoroStore();
 
 // Non-persistent UI state
-const lastCompletedPhase = ref<string>("work");
+const lastCompletedPhase = ref<TimerPhases>(TimerPhases.Work);
 
 watch(
     () => pomodoroStore.timeLeft,
@@ -120,7 +93,9 @@ watch(
             !pomodoroStore.isRunning
         ) {
             lastCompletedPhase.value =
-                pomodoroStore.currentPhase === "work" ? "shortBreak" : "work";
+                pomodoroStore.currentPhase === TimerPhases.Work
+                    ? TimerPhases.ShortBreak
+                    : TimerPhases.Work;
             playNotificationSound();
         }
     }
@@ -141,37 +116,10 @@ const switchPhase = (phase: string): void => {
     pomodoroStore.switchToPhase(phase as any);
 };
 
-const getPhaseLabel = (phase: string): string => {
-    switch (phase) {
-        case "work":
-            return "Work";
-        case "shortBreak":
-            return "Short Break";
-        case "longBreak":
-            return "Long Break";
-        default:
-            return "Work";
-    }
-};
-
-const getPhaseColor = (phase: string): string => {
-    switch (phase) {
-        case "work":
-            return "primary";
-        case "shortBreak":
-            return "success";
-        case "longBreak":
-            return "info";
-        default:
-            return "primary";
-    }
-};
-
 const playNotificationSound = (): void => {
     try {
         const AudioContextClass =
-            (globalThis as any).AudioContext ||
-            (globalThis as any).webkitAudioContext;
+            (globalThis as any).AudioContext || (globalThis as any).webkitAudioContext;
         if (!AudioContextClass) return;
 
         const audioContext = new AudioContextClass();
@@ -183,10 +131,7 @@ const playNotificationSound = (): void => {
 
         oscillator.frequency.value = 800;
         gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(
-            0.01,
-            audioContext.currentTime + 0.5
-        );
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
 
         oscillator.start(audioContext.currentTime);
         oscillator.stop(audioContext.currentTime + 0.5);

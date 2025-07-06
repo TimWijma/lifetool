@@ -1,7 +1,5 @@
 <template>
-    <v-list-item
-        class="px-0 todo-item"
-        :class="{ 'completed-todo': todo.completed }">
+    <v-list-item class="px-0 todo-item" :class="{ 'completed-todo': todo.completed }">
         <template v-slot:prepend>
             <v-checkbox
                 :model-value="todo.completed"
@@ -16,9 +14,7 @@
         <v-list-item-title class="todo-content">
             <!-- Todo text and tags inline -->
             <div class="todo-main-row">
-                <span v-if="!todo.isEditing" class="todo-name">{{
-                    todo.text
-                }}</span>
+                <span v-if="!todo.isEditing" class="todo-name">{{ todo.text }}</span>
                 <v-text-field
                     v-else
                     v-model="todo.editText"
@@ -43,9 +39,7 @@
                         class="tag-chip">
                         {{ tag }}
                         <template v-slot:append>
-                            <v-icon
-                                size="x-small"
-                                @click.stop="removeTagFromTodo(todo.id, tag)">
+                            <v-icon size="x-small" @click.stop="removeTagFromTodo(todo.id, tag)">
                                 mdi-close
                             </v-icon>
                         </template>
@@ -61,7 +55,7 @@
                                 v-bind="props"
                                 size="x-small"
                                 variant="tonal"
-                                color="grey-lighten-1"
+                                color="grey"
                                 class="add-tag-chip">
                                 <v-icon size="x-small">mdi-plus</v-icon>
                                 Tag
@@ -76,15 +70,12 @@
                                     :key="availableTag"
                                     @click="addTagToTodo(todo.id, availableTag)"
                                     class="tag-option">
-                                    <v-list-item-title>{{
-                                        availableTag
-                                    }}</v-list-item-title>
+                                    <v-list-item-title>{{ availableTag }}</v-list-item-title>
                                 </v-list-item>
                                 <v-divider
                                     v-if="
-                                        todoStore.allTags.filter(
-                                            (t) => !todo.tags.includes(t)
-                                        ).length > 0
+                                        todoStore.allTags.filter((t) => !todo.tags.includes(t))
+                                            .length > 0
                                     "></v-divider>
                                 <v-list-item>
                                     <v-text-field
@@ -105,10 +96,12 @@
         </v-list-item-title>
 
         <v-list-item-subtitle v-if="todo.createdAt" class="text-caption mt-1">
-            Created: {{ formatDate(todo.createdAt) }}
+            <v-icon size="x-small" class="mr-1">mdi-calendar-plus</v-icon>
+            {{ formatDate(todo.createdAt) }}
             <span v-if="todo.completedAt">
-                • Completed: {{ formatDate(todo.completedAt) }}</span
-            >
+                <v-icon size="x-small" class="ml-2 mr-1">mdi-check-circle</v-icon>
+                {{ formatDate(todo.completedAt) }}
+            </span>
         </v-list-item-subtitle>
 
         <template v-slot:append>
@@ -161,14 +154,8 @@ defineEmits<{
 
 const todoStore = useTodoStore();
 const { startTodoEdit, saveTodoEdit, cancelTodoEdit } = useTodoEdit();
-const {
-    openMenus,
-    newTagForTodo,
-    addTagToTodo,
-    removeTagFromTodo,
-    addNewTagToTodo,
-    toggleMenu,
-} = useTodoTags();
+const { openMenus, newTagForTodo, addTagToTodo, removeTagFromTodo, addNewTagToTodo, toggleMenu } =
+    useTodoTags();
 
 const formatDate = (date: Date): string => {
     return new Intl.DateTimeFormat("en-US", {
@@ -184,7 +171,6 @@ const formatDate = (date: Date): string => {
 .todo-item {
     transition: all 0.2s ease;
     border-radius: 4px;
-    margin-bottom: 4px;
     padding: 8px 0;
 }
 
@@ -231,47 +217,10 @@ const formatDate = (date: Date): string => {
     flex-wrap: wrap;
     gap: 4px;
     align-items: center;
-    margin-left: auto;
-}
-
-.tag-chip {
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.tag-chip:hover {
-    transform: scale(1.02);
-}
-
-.add-tag-chip {
-    cursor: pointer;
-    opacity: 0.7;
-    transition: all 0.2s ease;
-}
-
-.add-tag-chip:hover {
-    opacity: 1;
-    transform: scale(1.02);
 }
 
 .tag-option:hover {
     background-color: rgba(0, 0, 0, 0.04);
-}
-
-@keyframes completion-celebration {
-    0% {
-        transform: scale(1);
-    }
-    50% {
-        transform: scale(1.05);
-    }
-    100% {
-        transform: scale(1);
-    }
-}
-
-.todo-item.just-completed {
-    animation: completion-celebration 0.3s ease;
 }
 
 @media (max-width: 600px) {
