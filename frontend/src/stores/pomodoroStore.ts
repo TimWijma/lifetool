@@ -164,6 +164,15 @@ export const usePomodoroStore = defineStore("pomodoro", () => {
         }
     };
 
+    const resetStore = () => {
+        cleanup();
+        timeLeft.value = WORK_DURATION;
+        currentPhase.value = TimerPhases.Work;
+        completedCycles.value = 0;
+        isRunning.value = false;
+        saveState();
+    };
+
     // Automatically cleanup when store scope is disposed
     onScopeDispose(cleanup);
 
@@ -189,5 +198,6 @@ export const usePomodoroStore = defineStore("pomodoro", () => {
         skipPhase,
         switchToPhase,
         cleanup,
+        resetStore,
     };
 });

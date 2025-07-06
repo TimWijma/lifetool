@@ -21,6 +21,12 @@
         </div>
         <div class="header-actions">
             <v-btn
+                icon="mdi-refresh"
+                size="x-small"
+                variant="text"
+                @click.stop="pomodoroStore.resetStore"
+                class="action-btn"></v-btn>
+            <v-btn
                 :icon="pomodoroStore.isRunning ? 'mdi-pause' : 'mdi-play'"
                 size="x-small"
                 variant="text"
