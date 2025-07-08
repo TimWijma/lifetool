@@ -1,5 +1,8 @@
 <template>
   <div class="canvas-container">
+    <!-- Video Background -->
+    <VideoBackground />
+    
     <div class="fab-container">
       <v-btn
         v-for="(config, type) in WINDOW_CONFIGS"
@@ -45,6 +48,8 @@ import { onUnmounted, type Component } from 'vue'
 import DraggableWindow from '../components/DraggableWindow.vue'
 import PomodoroTimerWindow from '../components/PomodoroTimerWindow.vue'
 import TodoListWindow from '../components/TodoListWindow.vue'
+import VideoControlWindow from '../components/VideoControlWindow.vue'
+import VideoBackground from '../components/VideoBackground.vue'
 import PomodoroWindowHeader from '../components/PomodoroWindowHeader.vue'
 import TodoWindowHeader from '../components/TodoWindowHeader.vue'
 import { useWindowStore, WindowType, type WindowConfig } from '../stores/windowStore'
@@ -75,6 +80,17 @@ const WINDOW_CONFIGS: Record<WindowType, WindowConfig> = {
     minHeight: 200,
     defaultWidth: 450,
     defaultHeight: 350
+  },
+  [WindowType.VIDEO]: { 
+    title: 'Video Controls', 
+    defaultX: 50, 
+    defaultY: 50, 
+    icon: 'mdi-video',
+    component: VideoControlWindow,
+    minWidth: 300,
+    minHeight: 200,
+    defaultWidth: 320,
+    defaultHeight: 240
   }
 }
 

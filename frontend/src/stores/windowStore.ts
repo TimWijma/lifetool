@@ -5,6 +5,7 @@ import { generateUniqueId } from "../utils/idGenerator";
 export enum WindowType {
     POMODORO = "pomodoro",
     TODO = "todo",
+    VIDEO = "video",
 }
 
 export interface WindowConfig {
